@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: diallens
+    runtime: python
+    repo: https://github.com/YOUR_USERNAME/YOUR_REPO  # Change this
+    plan: free
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.13
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
