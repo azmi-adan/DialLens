@@ -2,10 +2,13 @@ services:
   - type: web
     name: diallens
     runtime: python
-    repo: https://github.com/YOUR_USERNAME/YOUR_REPO  # Change this
+    repo: https://github.com/azmi-adan/DialLens
     plan: free
     envVars:
       - key: PYTHON_VERSION
         value: 3.10.13
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      apt-get update
+      apt-get install -y tesseract-ocr tesseract-ocr-eng
+      pip install -r requirements.txt
     startCommand: gunicorn app:app
