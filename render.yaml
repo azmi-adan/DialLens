@@ -1,14 +1,7 @@
 services:
   - type: web
     name: diallens
-    runtime: python
+    runtime: image
     repo: https://github.com/azmi-adan/DialLens
     plan: free
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.10.13
-    buildCommand: |
-      apt-get update
-      apt-get install -y tesseract-ocr tesseract-ocr-eng
-      pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    dockerfilePath: ./Dockerfile
