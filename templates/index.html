@@ -1,0 +1,136 @@
+<!-- templates/index.html - Main Frontend for DialLens -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>DialLens | OCR Phone Number Scanner</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+
+<!-- Splash Screen -->
+<div id="splash-screen" class="splash-screen">
+    <div class="splash-content">
+        <div class="logo-glow">
+            <i class="fas fa-eye logo-icon"></i>
+        </div>
+        <h1 class="splash-title">Dial<span class="highlight">Lens</span></h1>
+        <div class="loading-spinner"></div>
+        <p class="splash-tagline">Extract numbers. Instantly.</p>
+    </div>
+</div>
+
+<!-- Main App Container -->
+<div class="app-container hidden" id="app-container">
+    <!-- Header / Navbar -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-eye brand-icon"></i>
+            <span class="brand-name">Dial<span class="highlight">Lens</span></span>
+        </div>
+        <div class="nav-controls">
+            <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark/light mode">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content Grid -->
+    <main class="main-content">
+        <!-- Camera Section -->
+        <div class="card camera-card">
+            <div class="card-header">
+                <h2><i class="fas fa-video"></i> Camera Feed</h2>
+                <div class="camera-controls">
+                    <label class="switch-label">
+                        <span class="switch-text">Real-time Scan</span>
+                        <div class="switch">
+                            <input type="checkbox" id="realtime-toggle">
+                            <span class="slider round"></span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <div class="camera-container">
+                <video id="video" autoplay playsinline class="video-feed"></video>
+                <canvas id="canvas" style="display: none;"></canvas>
+                <div class="camera-overlay">
+                    <div class="scan-region"></div>
+                </div>
+            </div>
+            <div class="camera-actions">
+                <button id="capture-btn" class="btn btn-primary btn-glow">
+                    <i class="fas fa-camera"></i> Capture & Scan
+                </button>
+            </div>
+            <div class="camera-status" id="camera-status">
+                <i class="fas fa-info-circle"></i> Initializing camera...
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="card results-card">
+            <div class="card-header">
+                <h2><i class="fas fa-phone-alt"></i> Detected Numbers</h2>
+                <button id="clear-history-btn" class="btn-icon" title="Clear history">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+            <div id="results-container" class="results-container">
+                <div class="empty-state">
+                    <i class="fas fa-camera-retro"></i>
+                    <p>Capture an image to detect phone numbers</p>
+                </div>
+            </div>
+            <div class="results-footer" id="results-footer" style="display: none;">
+                <button id="copy-all-btn" class="btn-secondary">
+                    <i class="fas fa-copy"></i> Copy All
+                </button>
+            </div>
+        </div>
+
+        <!-- History Section (localStorage) -->
+        <div class="card history-card">
+            <div class="card-header">
+                <h2><i class="fas fa-history"></i> Recent Scans</h2>
+                <button id="clear-history-all-btn" class="btn-icon" title="Clear all history">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+            <div id="history-container" class="history-container">
+                <div class="empty-state small">
+                    <i class="fas fa-database"></i>
+                    <p>No saved scans yet</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>DialLens OCR &copy; 2026 | Extract phone numbers instantly</p>
+    </footer>
+</div>
+
+<!-- Loading Toast Overlay -->
+<div id="loading-toast" class="toast hidden">
+    <div class="toast-content">
+        <div class="spinner-small"></div>
+        <span>Scanning image...</span>
+    </div>
+</div>
+
+<!-- Message Toast -->
+<div id="message-toast" class="toast message-toast hidden">
+    <div class="toast-content">
+        <i class="fas" id="message-icon"></i>
+        <span id="message-text"></span>
+    </div>
+</div>
+
+<script src="/static/script.js"></script>
+</body>
+</html>
