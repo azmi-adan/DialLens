@@ -2,6 +2,8 @@
 import re
 import base64
 import logging
+import os
+import sys
 from flask import Flask, render_template, request, jsonify
 from PIL import Image
 import pytesseract
@@ -11,7 +13,27 @@ import io
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+# Set Tesseract path for different platforms
+if sys.platform == "linux":
+    pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
+elif sys.platform == "win32":
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+elif sys.platform == "darwin":
+    pytesseract.pytesseract.tesseract_cmd = '/usr/local/bin/tesseract'
+
+# Get the directory paths
+base_dir = os.path.dirname(os.path.abspath(__file__))
+frontend_dir = os.path.join(base_dir, '..', 'frontend')
+template_dir = os.path.join(frontend_dir, 'templates')
+static_dir = os.path.join(frontend_dir, 'static')
+
+# Create Flask app with explicit template and static folder paths
+app = Flask(__name__, 
+            template_folder=template_dir,
+            static_folder=static_dir)
+
+logger.info(f"Template folder: {template_dir}")
+logger.info(f"Static folder: {static_dir}")
 
 # Regex patterns for phone number detection
 # Kenyan format: +254XXXXXXXXX, 07XXXXXXXX, 01XXXXXXXX, 254XXXXXXXXX
