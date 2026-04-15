@@ -21,6 +21,10 @@ let stream = null;
 let realtimeMode = false;
 let realtimeInterval = null;
 let currentDetectedNumbers = [];
+let useClientOCR = false; // Fallback to client-side OCR if backend fails
+
+// API URL - Change this to your Render backend URL when deployed
+const API_URL = ''; // Leave empty to use same origin, or set to 'https://diallens.onrender.com'
 
 // ==================== Splash Screen ====================
 setTimeout(() => {
@@ -29,8 +33,23 @@ setTimeout(() => {
         splashScreen.classList.add('hidden');
         appContainer.classList.remove('hidden');
         initCamera();
+        loadTesseractForFallback();
     }, 800);
 }, 2000);
+
+// ==================== Load Tesseract.js for Client-Side OCR (Fallback) ====================
+function loadTesseractForFallback() {
+    // Dynamically load Tesseract.js as fallback
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    script.onload = () => {
+        console.log('Tesseract.js loaded - client-side OCR available as fallback');
+    };
+    script.onerror = () => {
+        console.warn('Tesseract.js failed to load');
+    };
+    document.head.appendChild(script);
+}
 
 // ==================== Theme Management ====================
 function initTheme() {
@@ -98,12 +117,83 @@ function captureFrame() {
     return canvas.toDataURL('image/jpeg', 0.8);
 }
 
+// ==================== Client-Side OCR with Tesseract.js ====================
+async function clientSideOCR(imageData) {
+    return new Promise((resolve, reject) => {
+        if (typeof Tesseract === 'undefined') {
+            reject(new Error('Tesseract.js not loaded'));
+            return;
+        }
+        
+        showToast('Running OCR in browser...', 'info');
+        
+        // Convert base64 to image blob
+        const img = new Image();
+        img.onload = () => {
+            Tesseract.recognize(
+                img,
+                'eng',
+                {
+                    logger: (m) => console.log(m),
+                    tessjs_create_hocr: false,
+                    tessjs_create_tsv: false,
+                    tessjs_create_box: false,
+                    tessjs_create_unlv: false,
+                    tessjs_create_osd: false
+                }
+            ).then(({ data: { text } }) => {
+                console.log('Client OCR result:', text);
+                const phoneNumbers = extractPhoneNumbersFromText(text);
+                resolve(phoneNumbers);
+            }).catch((err) => {
+                reject(err);
+            });
+        };
+        img.onerror = () => {
+            reject(new Error('Failed to load image for OCR'));
+        };
+        img.src = imageData;
+    });
+}
+
+// ==================== Extract Phone Numbers from Text ====================
+function extractPhoneNumbersFromText(text) {
+    // Regex patterns for phone numbers
+    const patterns = [
+        /\+254\d{9}/g,           // Kenyan: +254XXXXXXXXX
+        /07\d{8}/g,              // Kenyan: 07XXXXXXXX
+        /01\d{8}/g,              // Kenyan: 01XXXXXXXX
+        /254\d{9}/g,             // Kenyan without plus: 254XXXXXXXXX
+        /\+\d{1,3}\s?\d{3}\s?\d{3}\s?\d{4}/g,  // International
+        /0\d{9}/g                // Any 10-digit starting with 0
+    ];
+    
+    let numbers = new Set();
+    
+    patterns.forEach(pattern => {
+        const matches = text.match(pattern);
+        if (matches) {
+            matches.forEach(match => {
+                // Clean the number
+                const cleaned = match.replace(/\s/g, '');
+                if (cleaned.length >= 9 && cleaned.length <= 15) {
+                    numbers.add(cleaned);
+                }
+            });
+        }
+    });
+    
+    return Array.from(numbers).sort();
+}
+
 // ==================== Send to Backend ====================
 async function sendImageForOCR(imageData) {
     showLoading(true);
     
+    // Try backend first
     try {
-        const response = await fetch('/scan', {
+        const url = API_URL ? `${API_URL}/scan` : '/scan';
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -113,26 +203,68 @@ async function sendImageForOCR(imageData) {
         
         const data = await response.json();
         
-        if (data.success) {
-            if (data.numbers && data.numbers.length > 0) {
-                displayResults(data.numbers);
-                saveToHistory(data.numbers);
-                showToast(`Found ${data.count} phone number(s)!`, 'success');
-                return data.numbers;
+        if (data.success && data.numbers && data.numbers.length > 0) {
+            displayResults(data.numbers);
+            saveToHistory(data.numbers);
+            showToast(`Found ${data.count} phone number(s)!`, 'success');
+            showLoading(false);
+            return data.numbers;
+        } else if (data.success && data.numbers && data.numbers.length === 0) {
+            // No numbers found by backend, try client-side as fallback
+            showToast('Backend found nothing, trying client-side OCR...', 'info');
+            const clientNumbers = await clientSideOCR(imageData);
+            if (clientNumbers.length > 0) {
+                displayResults(clientNumbers);
+                saveToHistory(clientNumbers);
+                showToast(`Found ${clientNumbers.length} number(s) via client OCR!`, 'success');
+                showLoading(false);
+                return clientNumbers;
             } else {
-                displayEmptyResults(data.message || 'No phone numbers detected');
+                displayEmptyResults('No phone numbers detected. Try a clearer image.');
                 showToast('No numbers found. Try a clearer image.', 'warning');
+                showLoading(false);
                 return [];
             }
         } else {
-            throw new Error(data.error || 'Scan failed');
+            // Backend error, try client-side
+            console.log('Backend error, trying client-side OCR...');
+            const clientNumbers = await clientSideOCR(imageData);
+            if (clientNumbers.length > 0) {
+                displayResults(clientNumbers);
+                saveToHistory(clientNumbers);
+                showToast(`Found ${clientNumbers.length} number(s) via browser OCR!`, 'success');
+                showLoading(false);
+                return clientNumbers;
+            } else {
+                throw new Error(data.error || 'Scan failed');
+            }
         }
     } catch (error) {
-        console.error('OCR error:', error);
-        showToast('Error processing image: ' + error.message, 'error');
-        return [];
-    } finally {
-        showLoading(false);
+        console.error('Backend OCR error:', error);
+        
+        // Try client-side OCR as fallback
+        try {
+            showToast('Backend unavailable, using browser OCR...', 'info');
+            const clientNumbers = await clientSideOCR(imageData);
+            if (clientNumbers.length > 0) {
+                displayResults(clientNumbers);
+                saveToHistory(clientNumbers);
+                showToast(`Found ${clientNumbers.length} number(s) via browser OCR!`, 'success');
+                showLoading(false);
+                return clientNumbers;
+            } else {
+                displayEmptyResults('No phone numbers detected. Backend unavailable, and browser OCR found nothing.');
+                showToast('OCR failed. Please try again.', 'error');
+                showLoading(false);
+                return [];
+            }
+        } catch (clientError) {
+            console.error('Client OCR error:', clientError);
+            displayEmptyResults('OCR failed. Please check your connection and try again.');
+            showToast('OCR failed. Backend unavailable and browser OCR failed.', 'error');
+            showLoading(false);
+            return [];
+        }
     }
 }
 
@@ -206,7 +338,6 @@ function saveToHistory(numbers) {
     const timestamp = new Date().toISOString();
     
     numbers.forEach(number => {
-        // Avoid duplicates in recent history (check last 10)
         const exists = history.some(item => item.number === number && 
             (Date.now() - new Date(item.timestamp).getTime() < 60000));
         
@@ -219,7 +350,6 @@ function saveToHistory(numbers) {
         }
     });
     
-    // Keep only last 20 items
     history = history.slice(0, 20);
     localStorage.setItem('diallens_history', JSON.stringify(history));
     renderHistory();
@@ -281,7 +411,6 @@ function renderHistory() {
         historyContainer.appendChild(histDiv);
     });
     
-    // Add event listeners for history items
     document.querySelectorAll('.copy-history').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -321,7 +450,6 @@ async function copyToClipboard(text) {
         await navigator.clipboard.writeText(text);
         showToast(`Copied: ${text}`, 'success');
     } catch (err) {
-        // Fallback
         const textarea = document.createElement('textarea');
         textarea.value = text;
         document.body.appendChild(textarea);
@@ -351,7 +479,7 @@ function startRealtimeScan() {
                 await sendImageForOCR(imageData);
             }
         }
-    }, 2000); // Scan every 2 seconds
+    }, 3000);
 }
 
 function stopRealtimeScan() {
