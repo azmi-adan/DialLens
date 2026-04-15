@@ -23,8 +23,9 @@ let realtimeInterval = null;
 let currentDetectedNumbers = [];
 let useClientOCR = false; // Fallback to client-side OCR if backend fails
 
-// API URL - Change this to your Render backend URL when deployed
-const API_URL = ''; // Leave empty to use same origin, or set to 'https://diallens.onrender.com'
+// API URL - UPDATE THIS WITH YOUR ACTUAL RENDER BACKEND URL
+// After you deploy backend on Render, replace this URL
+const API_URL = 'https://diallens-backend.onrender.com'; // Change this to your Render backend URL
 
 // ==================== Splash Screen ====================
 setTimeout(() => {
@@ -192,7 +193,9 @@ async function sendImageForOCR(imageData) {
     
     // Try backend first
     try {
-        const url = API_URL ? `${API_URL}/scan` : '/scan';
+        const url = `${API_URL}/scan`;
+        console.log('Calling backend OCR at:', url);
+        
         const response = await fetch(url, {
             method: 'POST',
             headers: {

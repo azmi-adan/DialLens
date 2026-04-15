@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: diallens
-    runtime: image
-    repo: https://github.com/azmi-adan/DialLens
-    plan: free
-    dockerfilePath: ./Dockerfile

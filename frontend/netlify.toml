@@ -1,4 +1,5 @@
 [build]
+  command = "echo 'Static site - no build needed'"
   publish = "."
 
 [[redirects]]
@@ -11,9 +12,9 @@
   to = "/static/:splat"
   status = 200
 
-# Proxy API calls to your Render backend
+# Proxy to Render backend
 [[redirects]]
   from = "/scan"
-  to = "https://diallens.onrender.com/scan"
+  to = "https://diallens-backend.onrender.com/scan"
   status = 200
   force = true
